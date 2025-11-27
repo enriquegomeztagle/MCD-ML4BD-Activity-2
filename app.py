@@ -64,10 +64,9 @@ MODEL_PATH = "models/model_incremental.pkl"
 # INICIALIZAR MODELO
 # =========================================================
 if "model" not in st.session_state:
-    # model = load_model_from_gcs(bucket_name, MODEL_PATH)
-    # if model is None:
-    #     model = preprocessing.StandardScaler() | linear_model.LinearRegression()
-    model = preprocessing.StandardScaler() | linear_model.LinearRegression()
+    model = load_model_from_gcs(bucket_name, MODEL_PATH)
+    if model is None:
+        model = preprocessing.StandardScaler() | linear_model.LinearRegression()
 
     st.session_state.model = model
     st.session_state.metric = metrics.R2()
@@ -206,8 +205,8 @@ if st.button("Procesar siguiente archivo"):
         if score is not None:
             st.session_state.history.append(score)
             st.write(f"{blob.name} — R² acumulado: **{score:.3f}**")
-            print(f"[INFO] Processed {blob.name} - Current R2: {score}")
             save_model_to_gcs(model, bucket_name, MODEL_PATH)
+            print(f"[R2 INFO] Processed {blob.name} - Current R2: {score}")
 
         st.session_state.index += 1
 
