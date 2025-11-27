@@ -54,7 +54,7 @@ def load_model_from_gcs(bucket_name, source_blob):
 # =========================================================
 # PARÁMETROS
 # =========================================================
-bucket_name = st.text_input("Bucket de GCS:", "bucket_131025")
+bucket_name = st.text_input("Bucket de GCS:", "bucket-grandesdatos-151025")
 prefix = st.text_input("Prefijo/carpeta:", "tlc_yellow_trips_2022/")
 limite = st.number_input("Filas a procesar por archivo:", value=1000, step=100)
 
@@ -205,6 +205,7 @@ if st.button("Procesar siguiente archivo"):
         if score is not None:
             st.session_state.history.append(score)
             st.write(f"{blob.name} — R² acumulado: **{score:.3f}**")
+            print(f"[INFO] Processed {blob.name} - Current R2: {score}")
             save_model_to_gcs(model, bucket_name, MODEL_PATH)
 
         st.session_state.index += 1
