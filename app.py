@@ -56,7 +56,7 @@ def load_model_from_gcs(bucket_name, source_blob):
 # =========================================================
 bucket_name = st.text_input("Bucket de GCS:", "bucket-grandesdatos-151025")
 prefix = st.text_input("Prefijo/carpeta:", "tlc_yellow_trips_2022/")
-limite = st.number_input("Filas a procesar por archivo:", value=1000, step=100)
+limite = st.number_input("Filas a procesar por archivo:", value=10000, step=1000)
 
 MODEL_PATH = "models/model_incremental.pkl"
 
@@ -64,11 +64,10 @@ MODEL_PATH = "models/model_incremental.pkl"
 # INICIALIZAR MODELO
 # =========================================================
 if "model" not in st.session_state:
-    # Ignorar por ahora el modelo previo en GCS
-    # model = load_model_from_gcs(bucket_name, MODEL_PATH)
-    # if model is None:
-    #     model = preprocessing.StandardScaler() | linear_model.LinearRegression()
-    model = preprocessing.StandardScaler() | linear_model.LinearRegression()
+    # ALWAYS start with fresh model (don't load from GCS)
+    # Use MinMaxScaler instead of StandardScaler for better numerical stability
+    # when features have low initial variance (e.g., weekend-only data in first file)
+    model = preprocessing.MinMaxScaler() | linear_model.LinearRegression()
 
     st.session_state.model = model
     st.session_state.metric = metrics.R2()
@@ -109,6 +108,7 @@ def _extract_x(row):
     dow = int(dt.weekday()) if isinstance(dt, pd.Timestamp) else 0
     weekend = 1.0 if dow >= 5 else 0.0
 
+    # Using all 6 features with MinMaxScaler (more stable than StandardScaler)
     return {
         "dist": dist,
         "log_dist": float(np.log1p(max(dist, 0))),
@@ -173,6 +173,10 @@ def process_single_blob(bucket_name, blob_name, limite=1000, chunksize=500):
 
                 count += 1
 
+            # Exit outer loop if limit reached
+            if count >= limite:
+                break
+
     except Exception as e:
         st.warning(f"Error en {blob_name}: {e}")
         return None
@@ -204,14 +208,10 @@ if st.button("Procesar siguiente archivo"):
 
         score = process_single_blob(bucket_name, blob.name, int(limite))
 
-        # if score is not None:
-        #     st.session_state.history.append(score)
-        #     st.write(f"{blob.name} — R² acumulado: **{score:.3f}**")
-        #     save_model_to_gcs(model, bucket_name, MODEL_PATH)
-        #     print(f"[R2 INFO] Processed {blob.name} - Current R2: {score}")
         if score is not None:
             st.session_state.history.append(score)
             st.write(f"{blob.name} — R² acumulado: **{score:.3f}**")
+            save_model_to_gcs(model, bucket_name, MODEL_PATH)
             print(f"[R2 INFO] Processed {blob.name} - Current R2: {score}")
 
         st.session_state.index += 1
@@ -222,9 +222,18 @@ if st.button("Procesar siguiente archivo"):
 st.markdown("---")
 st.subheader("Estado actual del modelo")
 st.write(f"R² actual: **{metric.get():.3f}**")
+st.write(
+    f"Archivos procesados: **{st.session_state.index}/{len(st.session_state.blobs) if st.session_state.blobs else 0}**"
+)
 
 if st.session_state.history:
     st.line_chart(st.session_state.history)
 
+# =========================================================
+# BOTÓN DE RESET
+# =========================================================
+if st.button("🔄 Reiniciar modelo y comenzar de nuevo"):
+    st.session_state.clear()
+    st.rerun()
 
 st.caption("Cloud Run + River • Dataset público de taxis NYC (2022)_221125")
