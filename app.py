@@ -64,9 +64,10 @@ MODEL_PATH = "models/model_incremental.pkl"
 # INICIALIZAR MODELO
 # =========================================================
 if "model" not in st.session_state:
-    model = load_model_from_gcs(bucket_name, MODEL_PATH)
-    if model is None:
-        model = preprocessing.StandardScaler() | linear_model.LinearRegression()
+    # model = load_model_from_gcs(bucket_name, MODEL_PATH)
+    # if model is None:
+    #     model = preprocessing.StandardScaler() | linear_model.LinearRegression()
+    model = preprocessing.StandardScaler() | linear_model.LinearRegression()
 
     st.session_state.model = model
     st.session_state.metric = metrics.R2()
